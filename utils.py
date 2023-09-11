@@ -4,10 +4,6 @@ import torch
 import os
 import matplotlib.pyplot as plt
 
-from configs.global_config import (
-    VIS_LABEL_MAP as viz_map
-)
-
 plt.style.use('ggplot')
 
 def set_class_values(all_classes, classes_to_train):
@@ -63,6 +59,7 @@ def draw_translucent_seg_maps(
     i, 
     val_seg_dir, 
     label_colors_list,
+    viz_map
 ):
     """
     This function color codes the segmentation maps that is generated while
@@ -222,7 +219,7 @@ def get_segment_labels(image, model, device):
         outputs = model(image.to(device))
     return outputs
 
-def draw_segmentation_map(outputs):
+def draw_segmentation_map(outputs, viz_map):
     labels = torch.argmax(outputs.squeeze(), dim=0).detach().cpu().numpy()
 
     # create Numpy arrays containing zeros

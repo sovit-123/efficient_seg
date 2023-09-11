@@ -2,18 +2,11 @@ import torch
 import torch.nn as nn
 import os
 import argparse
+import yaml
 
 from datasets import get_images, get_dataset, get_data_loaders
 from engine import train, validate
-from segmentation_model import EffSegModel
-from configs.global_config import (
-    ALL_CLASSES, 
-    LABEL_COLORS_LIST,
-    TRAIN_IMAGES,
-    TRAIN_LABELS,
-    VALID_IMAGES,
-    VALID_LABELS
-)
+from models.segmentation_model import EffSegModel
 from utils import save_model, SaveBestModel, save_plots, SaveBestModelIOU
 from torch.optim.lr_scheduler import MultiStepLR
 
@@ -58,6 +51,11 @@ parser.add_argument(
     dest='out_dir',
     default='outputs/default_training'
 )
+parser.add_argument(
+    '--config',
+    default='configs/config_voc.py',
+    help='path to the data configuration file'
+)
 args = parser.parse_args()
 print(args)
 
@@ -68,8 +66,20 @@ if __name__ == '__main__':
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(out_dir_valid_preds, exist_ok=True)
 
+    # Read configurations from config file.
+    with open(args.config) as file:
+        data_configs = yaml.safe_load(file)
+    print(data_configs)
+    ALL_CLASSES = data_configs['ALL_CLASSES']
+    TRAIN_IMAGES = data_configs['TRAIN_IMAGES']
+    TRAIN_LABELS = data_configs['TRAIN_LABELS']
+    VALID_IMAGES = data_configs['VALID_IMAGES']
+    VALID_LABELS = data_configs['VALID_LABELS']
+    LABEL_COLORS_LIST = data_configs['LABEL_COLORS_LIST']
+    VIZ_MAP = data_configs['VIS_LABEL_MAP']
+    
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = EffSegModel(num_classes=len(ALL_CLASSES)).to(device)
+    model = EffSegModel(num_classes=len(ALL_CLASSES), aux=True).to(device)
     print(model)
     # Total parameters and trainable parameters.
     total_params = sum(p.numel() for p in model.parameters())
@@ -119,24 +129,25 @@ if __name__ == '__main__':
     for epoch in range (EPOCHS):
         print(f"EPOCH: {epoch + 1}")
         train_epoch_loss, train_epoch_pixacc, train_epoch_miou = train(
-            model,
-            train_dataloader,
-            device,
-            optimizer,
-            criterion,
-            classes_to_train
+            model=model,
+            train_dataloader=train_dataloader,
+            device=device,
+            optimizer=optimizer,
+            # criterion,
+            classes_to_train=classes_to_train
         )
         valid_epoch_loss, valid_epoch_pixacc, valid_epoch_miou = validate(
-            model,
-            valid_dataset,
-            valid_dataloader,
-            device,
-            criterion,
-            classes_to_train,
-            LABEL_COLORS_LIST,
-            epoch,
-            ALL_CLASSES,
-            save_dir=out_dir_valid_preds
+            model=model,
+            valid_dataset=valid_dataset,
+            valid_dataloader=valid_dataloader,
+            device=device,
+            # criterion,
+            classes_to_train=classes_to_train,
+            label_colors_list=LABEL_COLORS_LIST,
+            epoch=epoch,
+            all_classes=ALL_CLASSES,
+            save_dir=out_dir_valid_preds,
+            viz_map=VIZ_MAP
         )
         train_loss.append(train_epoch_loss)
         train_pix_acc.append(train_epoch_pixacc)

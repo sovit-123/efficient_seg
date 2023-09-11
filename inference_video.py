@@ -3,11 +3,10 @@ import torch
 import argparse
 import time
 import os
+import yaml
 
 from utils import get_segment_labels, draw_segmentation_map, image_overlay
-from PIL import Image
-from configs.global_config import ALL_CLASSES
-from segmentation_model import EffSegModel
+from models.segmentation_model import EffSegModel
 
 # Construct the argument parser.
 parser = argparse.ArgumentParser()
@@ -29,6 +28,11 @@ parser.add_argument(
     default=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
     choices=['cpu', 'cuda']
 )
+parser.add_argument(
+    '--config',
+    default='configs/config_voc.py',
+    help='path to the data configuration file'
+)
 args = parser.parse_args()
 
 out_dir = os.path.join('outputs', 'inference_results_video')
@@ -37,9 +41,16 @@ os.makedirs(out_dir, exist_ok=True)
 # Set computation device.
 device = args.device
 
-model = EffSegModel(len(ALL_CLASSES), pretrained=False)
+# Read configurations from config file.
+with open(args.config) as file:
+    data_configs = yaml.safe_load(file)
+print(data_configs)
+ALL_CLASSES = data_configs['ALL_CLASSES']
+VIZ_MAP = data_configs['VIS_LABEL_MAP']
+
+model = EffSegModel(len(ALL_CLASSES), pretrained=False, aux=False)
 ckpt = torch.load(args.model, map_location='cpu')
-model.load_state_dict(ckpt['model_state_dict'])
+model.load_state_dict(ckpt['model_state_dict'], strict=False)
 model.eval().to(device)
 
 cap = cv2.VideoCapture(args.input)
@@ -72,7 +83,10 @@ while(cap.isOpened()):
         start_time = time.time()
         # Do forward pass and get the output dictionary.
         outputs = get_segment_labels(rgb_frame, model, device)
-        segmented_image = draw_segmentation_map(outputs)
+        segmented_image = draw_segmentation_map(
+            outputs['out'],
+            viz_map=VIZ_MAP
+        )
         
         final_image = image_overlay(rgb_frame, segmented_image)
 

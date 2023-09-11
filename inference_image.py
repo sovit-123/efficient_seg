@@ -2,10 +2,10 @@ import torch
 import argparse
 import cv2
 import os
+import yaml
 
 from utils import get_segment_labels, draw_segmentation_map, image_overlay
-from configs.global_config import ALL_CLASSES
-from segmentation_model import EffSegModel
+from models.segmentation_model import EffSegModel
 
 # Construct the argument parser.
 parser = argparse.ArgumentParser()
@@ -27,6 +27,11 @@ parser.add_argument(
     default=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
     choices=['cpu', 'cuda']
 )
+parser.add_argument(
+    '--config',
+    default='configs/config_voc.py',
+    help='path to the data configuration file'
+)
 args = parser.parse_args()
 
 out_dir = os.path.join('outputs', 'inference_results_image')
@@ -34,6 +39,13 @@ os.makedirs(out_dir, exist_ok=True)
 
 # Set computation device.
 device = args.device
+
+# Read configurations from config file.
+with open(args.config) as file:
+    data_configs = yaml.safe_load(file)
+print(data_configs)
+ALL_CLASSES = data_configs['ALL_CLASSES']
+VIZ_MAP = data_configs['VIS_LABEL_MAP']
 
 model = EffSegModel(num_classes=len(ALL_CLASSES), pretrained=False)
 ckpt = torch.load(args.model, map_location='cpu')
@@ -54,8 +66,10 @@ for i, image_path in enumerate(all_image_paths):
     image_copy = image_copy / 255.0
     # Do forward pass and get the output dictionary.
     outputs = get_segment_labels(image_copy, model, device)
-    outputs = outputs
-    segmented_image = draw_segmentation_map(outputs)
+    segmented_image = draw_segmentation_map(
+        outputs['out'],
+        viz_map=VIZ_MAP
+    )
     
     final_image = image_overlay(image, segmented_image)
     cv2.imshow('Segmented image', final_image)

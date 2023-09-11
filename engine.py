@@ -1,15 +1,26 @@
 import torch
+import torch.nn as nn
 
 from tqdm import tqdm
 from utils import draw_translucent_seg_maps
 from metrics import IOUEval
+
+def criterion(inputs, target):
+    losses = {}
+    for name, x in inputs.items():
+        losses[name] = nn.functional.cross_entropy(x, target, ignore_index=255)
+
+    if len(losses) == 1:
+        return losses["out"]
+
+    return losses["out"] + 0.5 * losses["aux"]
 
 def train(
     model,
     train_dataloader,
     device,
     optimizer,
-    criterion,
+    # criterion,
     classes_to_train
 ):
     print('Training')
@@ -41,7 +52,7 @@ def train(
         optimizer.step()
         ##################################################
 
-        iou_eval.addBatch(outputs.max(1)[1].data, target.data)
+        iou_eval.addBatch(outputs['out'].max(1)[1].data, target.data)
         
     ##### PER EPOCH LOSS #####
     train_loss = train_running_loss / counter
@@ -54,12 +65,13 @@ def validate(
     valid_dataset,
     valid_dataloader,
     device,
-    criterion,
+    # criterion,
     classes_to_train,
     label_colors_list,
     epoch,
     all_classes,
-    save_dir
+    save_dir,
+    viz_map
 ):
     print('Validating')
     model.eval()
@@ -86,11 +98,12 @@ def validate(
             if i == num_batches - 1:
                 draw_translucent_seg_maps(
                     data, 
-                    outputs, 
+                    outputs['out'], 
                     epoch, 
                     i, 
                     save_dir, 
                     label_colors_list,
+                    viz_map=viz_map
                 )
 
             ##### BATCH-WISE LOSS #####
@@ -98,7 +111,7 @@ def validate(
             valid_running_loss += loss.item()
             ###########################
 
-            iou_eval.addBatch(outputs.max(1)[1].data, target.data)
+            iou_eval.addBatch(outputs['out'].max(1)[1].data, target.data)
         
     ##### PER EPOCH LOSS #####
     valid_loss = valid_running_loss / counter
