@@ -7,13 +7,15 @@ from metrics import IOUEval
 
 def criterion(inputs, target):
     losses = {}
-    for name, x in inputs.items():
-        losses[name] = nn.functional.cross_entropy(x, target, ignore_index=255)
+    if inputs['aux'] is not None:
+        for name, x in inputs.items():
+            losses[name] = nn.functional.cross_entropy(x, target)
+        return losses["out"] + 0.5 * losses["aux"]
 
-    if len(losses) == 1:
+    else:
+        losses['out'] = nn.functional.cross_entropy(inputs['out'], target)
         return losses["out"]
 
-    return losses["out"] + 0.5 * losses["aux"]
 
 def train(
     model,

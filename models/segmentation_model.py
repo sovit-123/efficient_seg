@@ -22,15 +22,15 @@ class FCNHead(nn.Module):
 class EffSegModel(nn.Module):
     def __init__(self, num_classes=1, pretrained=True, aux=False):
         super().__init__()
-        model_name = 'efficientnet_lite1'
+        model_name = 'efficientnet_lite4'
         # EfficientNet model with 1000 out features to load the weights.
         model = build_efficientnet_lite(model_name, 1000)
         if pretrained:
             model.load_state_dict(torch.load(f"models/efficientnet_weights/{model_name}.pth"))
         self.backbone = nn.Sequential(*list(model.children())[:-4])        
         
-        self.aux_out = FCNHead(192, num_classes) if aux else None
-        self.head = FCNHead(320, num_classes)
+        self.aux_out = FCNHead(272, num_classes) if aux else None
+        self.head = FCNHead(448, num_classes)
         
     def forward(self, x):
         results = {}
@@ -46,12 +46,14 @@ class EffSegModel(nn.Module):
         
         if self.aux_out is not None:
             aux = self.aux_out(aux_cls)
-            aux_out = F.interpolate(aux, size, mode='bilinear', align_corners=True)
+            aux_output = F.interpolate(
+                aux, size, mode='bilinear', align_corners=False
+            )
         else:
-            aux_out = None
-        results['aux'] = aux_out
+            aux_output = None
+        results['aux'] = aux_output
         x = self.head(x)
-        x = F.interpolate(x, size, mode='bilinear', align_corners=True)
+        x = F.interpolate(x, size, mode='bilinear', align_corners=False)
         results['out'] = x
         return results
         

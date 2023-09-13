@@ -30,7 +30,7 @@ parser.add_argument(
 )
 parser.add_argument(
     '--config',
-    default='configs/config_voc.py',
+    required=True,
     help='path to the data configuration file'
 )
 args = parser.parse_args()
