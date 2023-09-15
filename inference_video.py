@@ -6,7 +6,7 @@ import os
 import yaml
 
 from utils import get_segment_labels, draw_segmentation_map, image_overlay
-from models.segmentation_model import EffSegModel
+from models.effseg4_16s import EffSegModel
 
 # Construct the argument parser.
 parser = argparse.ArgumentParser()

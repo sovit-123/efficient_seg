@@ -1,27 +1,14 @@
-from efficientnet_lite import build_efficientnet_lite
+from models.efficientnet_lite import build_efficientnet_lite
+from models.fcn_decoder import FCNHead
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class FCNHead(nn.Module):
-    def __init__(self, in_channels, num_classes):
-        super().__init__()
-        inter_channels = in_channels // 4
-        self.block = nn.Sequential(
-            nn.Conv2d(in_channels, inter_channels, 3, padding=1, bias=False),
-            nn.BatchNorm2d(inter_channels),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Conv2d(inter_channels, num_classes, 1)
-        )
-
-    def forward(self, x):
-        return self.block(x)
-
 class EffSegModel(nn.Module):
     def __init__(self, num_classes=1, pretrained=True, aux=False):
         super().__init__()
+        self.aux = aux
         model_name = 'efficientnet_lite4'
         # EfficientNet model with 1000 out features to load the weights.
         model = build_efficientnet_lite(model_name, 1000)
@@ -29,7 +16,10 @@ class EffSegModel(nn.Module):
             model.load_state_dict(torch.load(f"models/efficientnet_weights/{model_name}.pth"))
         self.backbone = nn.Sequential(*list(model.children())[:-4])        
         
-        self.aux_out = FCNHead(272, num_classes) if aux else None
+        self.aux_out = FCNHead(272, num_classes) if self.aux else None
+        self.module5_conv = nn.Conv2d(
+            272, 448, kernel_size=1, stride=1, padding=0
+        )
         self.head = FCNHead(448, num_classes)
         
     def forward(self, x):
@@ -41,7 +31,9 @@ class EffSegModel(nn.Module):
             counter += 1
             for layer in module_layer:
                 if counter == 6:
-                    aux_cls = layer(x)
+                    if self.aux:
+                        aux_cls = layer(x)
+                    module5 = layer(x)
                 x = layer(x)
         
         if self.aux_out is not None:
@@ -52,6 +44,9 @@ class EffSegModel(nn.Module):
         else:
             aux_output = None
         results['aux'] = aux_output
+
+        module5 = self.module5_conv(module5)
+        x += module5
         x = self.head(x)
         x = F.interpolate(x, size, mode='bilinear', align_corners=False)
         results['out'] = x
@@ -72,7 +67,3 @@ if __name__ == '__main__':
     tensor = torch.rand((1, 3, 512, 512))
     output = model(tensor)
     print(f"Output shape: {output['out'].shape}, {output['aux'].shape if aux else None}")
-    # print('*'*50)
-    # print('Individual Sequential layers)
-    # for i, layer in enumerate(model.backbone[1]):
-    #     print(f"LAYER {i}, {layer}")

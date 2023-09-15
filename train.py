@@ -6,7 +6,7 @@ import yaml
 
 from datasets import get_images, get_dataset, get_data_loaders
 from engine import train, validate
-from models.segmentation_model import EffSegModel
+from models.create_effseg_model import create_model
 from utils import save_model, SaveBestModel, save_plots, SaveBestModelIOU
 from torch.optim.lr_scheduler import MultiStepLR
 
@@ -56,6 +56,16 @@ parser.add_argument(
     default='configs/config_voc.py',
     help='path to the data configuration file'
 )
+parser.add_argument(
+    '--model',
+    default='effseg4_16s',
+    help='model name'
+)
+parser.add_argument(
+    '--aux',
+    action='store_true',
+    help='whether to use auxiliary loss or not'
+)
 args = parser.parse_args()
 print(args)
 
@@ -79,7 +89,8 @@ if __name__ == '__main__':
     VIZ_MAP = data_configs['VIS_LABEL_MAP']
     
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = EffSegModel(num_classes=len(ALL_CLASSES), aux=True).to(device)
+    build_model = create_model[args.model]
+    model = build_model(num_classes=len(ALL_CLASSES), aux=args.aux).to(device)
     print(model)
     # Total parameters and trainable parameters.
     total_params = sum(p.numel() for p in model.parameters())
