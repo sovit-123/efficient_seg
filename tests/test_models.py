@@ -3,7 +3,7 @@ USAGE:
 python -m tests.test_models
 """
 
-from models.effseg0_16s import EffSegModel
+from models.effseg4_8s import EffSegModel
 
 import torch
 
