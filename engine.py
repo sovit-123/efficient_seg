@@ -79,7 +79,6 @@ def validate(
     model.eval()
     valid_running_loss = 0.0
     # Calculate the number of batches.
-    num_batches = int(len(valid_dataset)/len(valid_dataloader))
     num_classes = len(classes_to_train)
     iou_eval = IOUEval(num_classes)
 
@@ -97,7 +96,7 @@ def validate(
             
             # Save the validation segmentation maps every
             # last batch of each epoch
-            if i == num_batches - 1:
+            if i == 1:
                 draw_translucent_seg_maps(
                     data, 
                     outputs['out'], 
