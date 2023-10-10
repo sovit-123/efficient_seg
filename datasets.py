@@ -145,13 +145,15 @@ def get_data_loaders(train_dataset, valid_dataset, batch_size):
     train_data_loader = DataLoader(
         train_dataset, 
         batch_size=batch_size,
-        num_workers=8, 
+        num_workers=8,
+        shuffle=True,
         drop_last=False
     )
     valid_data_loader = DataLoader(
         valid_dataset, 
         batch_size=batch_size, 
         num_workers=8,
+        shuffle=False,
         drop_last=False
     )
 
